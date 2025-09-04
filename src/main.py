@@ -1,23 +1,33 @@
 from fastapi import FastAPI
-import joblib
-import pandas as pd
-from feature_engineering import generate_features
+from pydantic import BaseModel
+import json
+import subprocess
 
-# Load pipeline
-model = joblib.load("../models/xgb_pipeline.pkl")
 
 app = FastAPI()
 
-@app.post("/predict/")
-def predict_customer(data: dict):
-    input_df = pd.DataFrame([data]) 
-    
-    processed_df = generate_features(input_df)
+# Define the input format for the API
+class CustomerQuery(BaseModel):
+    query: str
 
-    prediction = model.predict(processed_df)[0]
-    probability = model.predict_proba(processed_df)[0,1]
+@app.post("/predict")
+def predict_customer(query: CustomerQuery):
+    # Step 1: Save the query to customer.json so chatbot.py can use it
+    with open("customer.json", "w") as f:
+        json.dump({"query": query.query}, f)
 
-    return {
-        "prediction": int(prediction),
-        "probability": float(probability)
-    }
+    # Step 2: Run chatbot.py as a subprocess
+    result = subprocess.run(
+        ["python", "chatbot.py"],
+        capture_output=True,
+        text=True
+    )
+
+    # Step 3: Extract chatbot.py's output
+    if result.returncode != 0:
+        return {"error": "chatbot.py failed", "details": result.stderr}
+
+    output_lines = result.stdout.strip().splitlines()
+    final_response = output_lines[-1] if output_lines else "No output from chatbot.py"
+
+    return {"response": final_response}

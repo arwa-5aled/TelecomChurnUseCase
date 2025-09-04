@@ -1,7 +1,7 @@
 from model import classify_customer
 
 sample_row = {
-    "customerID": "7590-VHVEG",
+    "customerID": "unknown",
     "gender": "Male",
     "Senior_Citizen": 0,   # note the trailing space
     "Is_Married": "No",
